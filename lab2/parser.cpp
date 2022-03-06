@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <curl/curl.h>
 #include <time.h>
+#include <algorithm>
 #include <thread>
 #include <nlohmann/json.hpp>
-#include "TablePrinter-master-2/library/TablePrinter.hpp"
-#include <algorithm>
+#include <TablePrinter/library/TablePrinter.hpp>
 
 using json = nlohmann::json;
 
