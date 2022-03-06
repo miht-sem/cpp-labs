@@ -16,14 +16,14 @@ private:
     std::map<std::string, std::vector<double>> m_statistics;
 
 public:
-    Statistics(std::map<std::string, std::vector<double>> stat) : m_statistics(stat) {}
+    Statistics(std::map<std::string, std::vector<double>>& stat) : m_statistics(stat) {}
     Statistics() {}
     void add_valute(std::string ind_val, double course)
     {
         if (!this->m_statistics.try_emplace(ind_val, std::vector<double> {course}).second) 
             this->m_statistics[ind_val].push_back(course);
     }
-    void average_value_of_all()
+    void average_value_of_all() const
     {
         trl::TablePrinter table_of_valutes;
         table_of_valutes.AddColumn("Valute", 6);
@@ -37,7 +37,7 @@ public:
         }
         table_of_valutes.PrintFooter();
     }
-    void median_value_of_all()
+    void median_value_of_all() const
     {
         trl::TablePrinter table_of_valutes;
         table_of_valutes.AddColumn("Valute", 6);
@@ -149,26 +149,14 @@ void connect_and_parse(Statistics& stat)
     curl_global_cleanup();
 }
 
-void connect_thr(int needed_time, Statistics& stat)
+void connect_thr(const int needed_time, Statistics& stat, const bool& stop)
 {
-    while (true)
+    while (!stop)
     {
         connect_and_parse(stat);
         sleep(needed_time);
         std::cout << "\n===========================================================\n\n";
     }
-}
-
-void disconnect_thr(Statistics& stat)
-{
-    int get = getchar();
-    get = getchar();
-    std::cout << "\n=========================Average===========================\n";
-    stat.average_value_of_all();
-    std::cout << "\n=========================Median============================\n";
-    stat.median_value_of_all();
-    std::cout << "\n===========================================================\n\n";
-    exit(0);
 }
 
 int main()
@@ -177,9 +165,17 @@ int main()
     std::cout << "Enter the time how often you need to send the request: ";
     std::cin >> needed_time;
     Statistics stat;
-    std::thread connect_thread(connect_thr, needed_time, std::ref(stat));
-    std::thread disconnect_thread(disconnect_thr, std::ref(stat));
-    disconnect_thread.join();
-    connect_thread.join();
+    bool stop = false;
+    std::thread connect_thread(connect_thr, needed_time, std::ref(stat), std::ref(stop));
+    connect_thread.detach();
+    int get = getchar();
+    get = getchar();
+    stop = true;
+    std::cout << "\n=========================Average===========================\n";
+    stat.average_value_of_all();
+    std::cout << "\n=========================Median============================\n";
+    stat.median_value_of_all();
+    std::cout << "\n===========================================================\n\n";
+    exit(0);
     return 0;
 }
