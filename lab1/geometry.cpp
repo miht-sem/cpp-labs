@@ -53,6 +53,25 @@ public:
     }
 };
 
+inline int area(Dot a, Dot b, Dot c)
+{
+    return (b.getX() - a.getX()) * (c.getY() - a.getY()) - (b.getY() - a.getY()) * (c.getX() - a.getX());
+}
+
+inline bool intersect_1(int a, int b, int c, int d)
+{
+    if (a > b)
+        std::swap(a, b);
+    if (c > d)
+        std::swap(c, d);
+    return std::max(a, c) <= std::min(b, d);
+}
+
+bool is_intersect(Dot a, Dot b, Dot c, Dot d)
+{
+    return intersect_1(a.getX(), b.getX(), c.getX(), d.getX()) && intersect_1(a.getY(), b.getY(), c.getY(), d.getY()) && area(a, b, c) * area(a, b, d) <= 0 && area(c, d, a) * area(c, d, b) <= 0;
+}
+
 class Polyline
 {
 protected:
@@ -113,6 +132,25 @@ public:
             exit(1);
         }
     }
+    bool self_intersections()
+    {
+
+        for (int i = 0; i < this->m_dot_segments.size() - 4; i++)
+        {
+            for (int j = i + 2; j < this->m_dot_segments.size() - 2; j++)
+            {
+                Dot p1 = m_dot_segments[i];
+                Dot p2 = m_dot_segments[i + 1];
+                Dot p3 = m_dot_segments[j];
+                Dot p4 = m_dot_segments[j + 1];
+                if (is_intersect(p1, p2, p3, p4))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 };
 
 class Polygon
@@ -121,8 +159,22 @@ protected:
     ClosedPolyline m_closed_polyline;
 
 public:
-    explicit Polygon(const ClosedPolyline &closed_polyline = ClosedPolyline()) : m_closed_polyline(closed_polyline) {}
-    explicit Polygon(const std::vector<Dot> &polyline) : m_closed_polyline(ClosedPolyline(polyline)) {}
+    explicit Polygon(const ClosedPolyline &closed_polyline = ClosedPolyline()) : m_closed_polyline(closed_polyline)
+    {
+        if (m_closed_polyline.self_intersections())
+        {
+            std::cout << "The polygon has self intersections";
+            exit(1);
+        }
+    }
+    explicit Polygon(const std::vector<Dot> &polyline) : m_closed_polyline(ClosedPolyline(polyline))
+    {
+        if (m_closed_polyline.self_intersections())
+        {
+            std::cout << "The polygon has self intersections";
+            exit(1);
+        }
+    }
     Polygon(const Polygon &polygon) : m_closed_polyline(polygon.m_closed_polyline) {}
     Polygon &operator=(const Polygon &polygon)
     {
@@ -205,7 +257,7 @@ public:
 class RegularPolygon : public Polygon
 {
 public:
-    RegularPolygon(const std::vector<Dot>& polyline = {Dot(0.0, 0.0), Dot(1.0, 1.0)}) : Polygon(polyline) {}
+    RegularPolygon(const std::vector<Dot> &polyline = {Dot(0.0, 0.0), Dot(1.0, 1.0)}) : Polygon(polyline) {}
     RegularPolygon(const RegularPolygon &regularPolygon) : Polygon(regularPolygon.m_closed_polyline) {}
     RegularPolygon &operator=(const RegularPolygon &regularPolygon)
     {
@@ -240,6 +292,9 @@ int main()
     {
         std::cout << "Perimeter " << polygons[i]->perimeter() << "; Square " << polygons[i]->square() << ";\n";
     }
+    Dot i1(2, 1), i2(4, 1), i3(3, 2), i4(1, 0), i5(0, 1);
+    Polygon polygon_int({i1, i2, i3, i4, i5});
+    std::cout << "Perimeter " << polygon_int.perimeter() << "; Square " << polygon_int.square() << ";\n";
 
     return 0;
 }
