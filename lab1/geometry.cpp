@@ -53,7 +53,7 @@ public:
     }
 };
 
-inline int area(Dot a, Dot b, Dot c)
+inline int area(Dot &a, Dot &b, Dot &c)
 {
     return (b.getX() - a.getX()) * (c.getY() - a.getY()) - (b.getY() - a.getY()) * (c.getX() - a.getX());
 }
