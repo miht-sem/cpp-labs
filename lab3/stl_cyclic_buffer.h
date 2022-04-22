@@ -158,14 +158,14 @@ public:
 
     void push_back(Tp item)
     {
-        if (is_full()) throw std::runtime_error("Error: Buffer is full!!!");
+        if (is_full()) change_max_size(_max_size * 2);
         _alloc.construct(_buffer + _tail, item);
         _tail = (_tail + 1) % _max_size;
     }
 
     void push_front(Tp item)
     {
-        if (is_full()) throw std::runtime_error("Error: Buffer is full!!!");
+        if (is_full()) change_max_size(_max_size * 2);
         size_t new_head = _head > 0 ? _head - 1 : _max_size - 1;
         _alloc.construct(_buffer + new_head, item);
         _head = new_head;
