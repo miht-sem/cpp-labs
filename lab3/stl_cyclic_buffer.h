@@ -114,9 +114,6 @@ private:
     };
 
 public:
-    using allocator_type = Allocator;
-    using allocator_pointer = typename std::allocator_traits<Allocator>::pointer;
-    using alloc_traits = std::allocator_traits<Allocator>;
 
     Cyclic_Buffer<Tp, Allocator>(size_t max_size, Allocator allocator = std::allocator<Tp>()) : _max_size(max_size + 1), _alloc(allocator)
     {
@@ -190,7 +187,7 @@ public:
         return destroyed;
     }
 
-    size_t size()
+    size_t size() const
     {
         if (_tail >= _head) return _tail - _head;
         return _max_size - (_head - _tail);
