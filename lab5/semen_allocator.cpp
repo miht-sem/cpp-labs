@@ -24,7 +24,10 @@ public:
         m_size_of_block = size_of_block;
         m_memory = &m_chunks.back().first.front();
     }
-    ~Allocator_Helper() {}
+    ~Allocator_Helper()
+    {
+        delete[] m_memory;
+    }
 
     void *allocate(std::size_t n)
     {
