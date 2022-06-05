@@ -101,12 +101,3 @@ public:
         return out;
     }
 };
-
-// int main()
-// {
-//     constexpr Polynomial<5> pol(std::array<int, 5> { 1, 2, 3, 4, 5 });
-//     constexpr int calculated_num = pol.calculate_x(2);
-//     static_assert(calculated_num == 129, "calculated_num is correct");
-// 	std::cout << pol << " " << calculated_num << "\n";
-//     return 0;
-// }
