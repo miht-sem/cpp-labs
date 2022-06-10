@@ -12,79 +12,103 @@
 #include <unordered_map>
 #include <vector>
 
+class Blocks
+{
+public:
+    Blocks(std::pair<std::size_t, std::size_t> size_and_count)
+    {
+        for (std::size_t i = 0; i < size_and_count.second; ++i)
+            m_blocks.push_back(new unsigned char[size_and_count.first]);
+        m_available_blocks = size_and_count.second;
+        size_of_block = size_and_count.first;
+    }
+    unsigned char *get_chunk()
+    {
+        if (is_empty())
+            throw std::runtime_error("Error: There is no availible blocks!");
+        m_available_blocks--;
+        return m_blocks[m_available_blocks];
+    }
+    bool is_empty() const { return m_available_blocks == 0; }
+    bool find_block(unsigned char *memory)
+    {
+        for (int i = m_blocks.size() - 1; i >= m_available_blocks && i > 0; i--)
+            if (m_blocks[i] == memory)
+            {
+                if (i != m_available_blocks)
+                    std::swap(m_blocks[i], m_blocks[m_available_blocks]);
+                m_available_blocks++;
+                return true;
+            }
+        return false;
+    }
+
+    std::size_t get_size_of_block() const { return size_of_block; }
+
+private:
+    std::vector<unsigned char *> m_blocks;
+    std::size_t m_available_blocks;
+    std::size_t size_of_block;
+};
+
+class Greater
+{
+private:
+    std::size_t m_num;
+
+public:
+    Greater(std::size_t num) : m_num(num) {}
+    bool operator()(const Blocks &block) const
+    {
+        return block.get_size_of_block() >= m_num;
+    }
+};
+
 class Allocator_Helper
 {
 public:
-    Allocator_Helper(const std::size_t count_of_blocks = 100, const std::size_t size_of_block = 8192)
+    Allocator_Helper(const std::vector<std::pair<std::size_t, std::size_t>> size_and_count = {{1, 5}, {2, 5}, {4, 5}, {8, 5}, {16, 5}, {32, 5}, {64, 5}, {128, 5}, {256, 5}, {512, 5}})
     {
-
-        for (int i = 0; i < count_of_blocks; ++i)
-            m_chunks.emplace_back(size_of_block, size_of_block);
-        m_available_blocks = count_of_blocks - 1;
-        m_size_of_block = size_of_block;
-        m_memory = &m_chunks.back().first.front();
-    }
-    ~Allocator_Helper()
-    {
-        delete[] m_memory;
+        for (auto i : size_and_count)
+            m_chunks.emplace_back(i);
     }
 
     void *allocate(std::size_t n)
     {
-        if (m_available_blocks == 0)
+        auto position_of_needed_chunk = std::find_if(m_chunks.begin(), m_chunks.end(), Greater(n));
+
+        if (position_of_needed_chunk == m_chunks.end())
+            throw std::runtime_error("Error: There is not such amount memory in chunks!!!!");
+
+        while (position_of_needed_chunk->is_empty())
         {
-            throw std::runtime_error("Error: Memory is end!");
-        }
-        if (n > m_size_of_block)
-        {
-            throw std::runtime_error("Error: There is not enough memory in block!!!!");
-        }
-        if (n <= m_chunks[m_available_blocks].second)
-        {
-            auto mem = m_memory;
-            m_memory += n;
-            m_chunks[m_available_blocks].second -= n;
-            std::cout << "Allocated: " << n << " bytes. Count Of Available Blocks: " << m_available_blocks << "\n";
-            return mem;
+            if (position_of_needed_chunk == m_chunks.end())
+                throw std::runtime_error("Error: There is not such amount memory in chunks!!!!");
+
+            position_of_needed_chunk++;
         }
 
-        m_available_blocks -= 1;
-        m_memory = &m_chunks[m_available_blocks].first.front();
-        m_chunks[m_available_blocks].second -= n;
-        auto mem = m_memory;
-        m_memory += n;
-        std::cout << "Allocated: " << n << " bytes. Count Of Available Blocks: " << m_available_blocks << "\n";
-        return mem;
+        std::cout << "Allocated: " << n << " bytes.\n";
+        return position_of_needed_chunk->get_chunk();
     }
 
     void deallocate(void *p, std::size_t n)
     {
         auto mem = (unsigned char *)p;
-
-        if (m_chunks[m_available_blocks].second + n == m_size_of_block)
+        auto position_of_needed_chunk = std::find_if(m_chunks.begin(), m_chunks.end(), Greater(n));
+        while (position_of_needed_chunk != m_chunks.end())
         {
-            m_chunks[m_available_blocks].second += n;
-            m_available_blocks += 1;
-            if (m_available_blocks == m_chunks.size())
+            if (position_of_needed_chunk->find_block(mem))
             {
-                m_available_blocks -= 1;
+                std::cout << "Deallocated: " << n << " bytes. \n";
+                return;
             }
-            m_memory = &m_chunks[m_available_blocks].first.front();
+            position_of_needed_chunk++;
         }
-        else
-        {
-            m_chunks[m_available_blocks].second += n;
-            m_memory = mem;
-        }
-        std::cout << "Deallocated: " << n << " bytes. Count Of Available Blocks: " << m_available_blocks << "\n";
-        std::cout << "Available memory in block: " << m_chunks[m_available_blocks].second << " bytes." << '\n';
     }
 
 private:
-    std::vector<std::pair<std::vector<unsigned char>, int>> m_chunks;
-    std::size_t m_available_blocks = 0;
-    std::size_t m_size_of_block = 0;
-    unsigned char *m_memory;
+    std::vector<Blocks> m_chunks;
 };
 
 template <class T>
@@ -118,13 +142,7 @@ public:
         if (count_objects > std::numeric_limits<std::size_t>::max() / sizeof(T))
             throw std::bad_array_new_length();
 
-        if (auto p = (T *)m_alloc_helper->allocate(count_objects * sizeof(T)))
-        {
-            return p;
-        }
-
-        throw std::bad_alloc();
-        ;
+        return (T *)m_alloc_helper->allocate(count_objects * sizeof(T));
     }
 
     void deallocate(pointer p, size_type count_objects)
@@ -138,11 +156,8 @@ bool operator==(const Semen_Allocator<T> &, const Semen_Allocator<U> &);
 template <class T, class U>
 bool operator!=(const Semen_Allocator<T> &, const Semen_Allocator<U> &);
 
-using alloc_string = std::basic_string<char, std::char_traits<char>, Semen_Allocator<char>>;
 template <class T>
 using alloc_vector = std::vector<T, Semen_Allocator<T>>;
-template <class T>
-using alloc_deque = std::deque<T, Semen_Allocator<T>>;
 template <class T>
 using alloc_list = std::list<T, Semen_Allocator<T>>;
 template <class T>
@@ -154,23 +169,14 @@ using alloc_unordered_set = std::unordered_set<T, std::hash<T>, std::equal_to<T>
 template <class T, class V>
 using alloc_unordered_map = std::unordered_map<T, std::hash<T>, std::equal_to<T>, Semen_Allocator<std::pair<const T, V>>>;
 
-struct F
-{
-};
 
 int main()
 {
-    Allocator_Helper allocator_helper(100, 4096);
+    Allocator_Helper allocator_helper;
     Semen_Allocator<char> semen_allocator(allocator_helper);
-    alloc_string string_123("123", semen_allocator);
-    alloc_vector<int> semens({1, 2, 3}, semen_allocator);
-    alloc_vector<alloc_string> v_str({string_123, string_123}, semen_allocator);
-    alloc_vector<alloc_string> v_str_copy(v_str, semen_allocator);
-    alloc_vector<F> v_x(24, F{}, semen_allocator);
-    alloc_deque<int> d_int({1, 2, 3}, semen_allocator);
-    alloc_list<int> l_int({1, 2, 3}, semen_allocator);
-    alloc_set<int> s_int({1, 2, 3}, std::less<int>{}, semen_allocator);
-    alloc_map<alloc_string, int> m_str_int(semen_allocator);
-    alloc_unordered_set<int> us_int(semen_allocator);
+    alloc_vector<int> semens_vector({1, 2, 3}, semen_allocator);
+    alloc_list<int> semens_list({1, 2, 3}, semen_allocator);
+    alloc_set<int> semens_set({1, 2, 3}, std::less<int>{}, semen_allocator);
+    alloc_unordered_set<int> semens_us(semen_allocator);
     return 0;
 }
